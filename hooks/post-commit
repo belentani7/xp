@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# =============================================================
+# XP Terminal RPG — Post-Commit Hook
+# Awards XP for every git commit.
+# =============================================================
+
+# Don't slow down the commit — run fast, fail silent
+set +e
+
+XP_HOME="$HOME/.xp"
+XP_CLI="$XP_HOME/xp"
+
+# Check if xp is installed
+if [ ! -f "$XP_CLI" ]; then
+    exit 0
+fi
+
+# Get commit info
+COMMIT_MSG=$(git log -1 --pretty=%B 2>/dev/null)
+COMMIT_SIZE=$(git diff --stat HEAD~1 HEAD 2>/dev/null | tail -1 | awk '{print $4}' || echo "1")
+
+if [ -z "$COMMIT_MSG" ]; then
+    exit 0
+fi
+
+# Award XP via Python engine
+python3 -c "
+import sys
+sys.path.insert(0, '$XP_HOME')
+
+from engine.rpg import (
+    classify_commit, award_xp, update_streak,
+    get_player, check_lore_unlock
+)
+from engine.achievements import check_achievements, ACHIEVEMENTS
+from engine.rpg import unlock_achievement, get_achievements, get_action_count, get_commit_count
+
+# Classify the commit
+msg = '''$COMMIT_MSG'''
+action_type = classify_commit(msg)
+
+# Size multiplier based on diff
+size = max(1, int('${COMMIT_SIZE:-1}' or '1') // 10 + 1)
+size = min(size, 5)  # Cap at 5x
+
+# Award XP
+result = award_xp(action_type, msg[:100], size)
+
+# Update streak
+update_streak()
+
+# Print notification
+xp = result['xp_gained']
+level = result['new_level']
+time_bonus = result.get('time_bonus')
+
+# Action labels
+labels = {
+    'commit': '⚡ Commit',
+    'bugfix': '🐛 Bug Fixed!',
+    'refactor': '♻️ Refactored!',
+    'feature': '🚀 New Feature!',
+    'hotfix': '🚑 Hotfix!',
+    'documentation': '📚 Documented!',
+    'test': '🧪 Tests Written!',
+    'revert': '😅 Reverted',
+    'force_push': '😬 Force Push',
+}
+
+label = labels.get(action_type, '⚡ Commit')
+bonus_str = f' ({time_bonus} bonus!)' if time_bonus else ''
+
+print(f'  {label} +{xp} XP{bonus_str}')
+
+# Level up notification
+if result['leveled_up']:
+    print()
+    print('  ╔═══════════════════════════════════╗')
+    print(f'  ║  ⬆️  LEVEL UP! Now level {level}!   ║')
+    print('  ╚═══════════════════════════════════╝')
+    print()
+
+    # Check lore
+    lore = check_lore_unlock(level)
+    if lore:
+        print(f'  {lore}')
+        print()
+
+# Check achievements
+player = get_player()
+if player:
+    check_data = dict(player)
+    check_data['total_commits'] = get_commit_count()
+    check_data['bugfix_count'] = get_action_count('bugfix')
+    check_data['refactor_count'] = get_action_count('refactor')
+    check_data['feature_count'] = get_action_count('feature')
+    check_data['hotfix_count'] = get_action_count('hotfix')
+    check_data['test_count'] = get_action_count('test')
+    check_data['documentation_count'] = get_action_count('documentation')
+    check_data['night_commits'] = 1 if __import__('datetime').datetime.now().hour >= 2 and __import__('datetime').datetime.now().hour < 5 else 0
+    check_data['early_commits'] = 1 if __import__('datetime').datetime.now().hour >= 5 and __import__('datetime').datetime.now().hour < 7 else 0
+    check_data['equipped'] = player.get('equipped', [])
+    check_data['current_streak'] = player.get('streak', {}).get('current_streak', 0)
+    check_data['level'] = player['level']
+    check_data['xp'] = player['xp']
+
+    unlocked_ids = {a['achievement_id'] for a in get_achievements()}
+    new_achs = check_achievements(check_data)
+    for ach_id in new_achs:
+        if ach_id not in unlocked_ids:
+            if unlock_achievement(ach_id):
+                ach = ACHIEVEMENTS[ach_id]
+                print(f'  🏆 Achievement: {ach[\"icon\"]} {ach[\"name\"]}! (+{ach[\"xp_reward\"]} XP)')
+" 2>/dev/null
+
+exit 0

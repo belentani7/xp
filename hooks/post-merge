@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# =============================================================
+# XP Terminal RPG — Post-Merge Hook
+# Awards boss-fight XP when merges complete.
+# =============================================================
+
+set +e
+
+XP_HOME="$HOME/.xp"
+
+if [ ! -f "$XP_HOME/xp" ]; then
+    exit 0
+fi
+
+# Get merge info
+MERGE_MSG=$(git log -1 --pretty=%B 2>/dev/null)
+
+python3 -c "
+import sys
+sys.path.insert(0, '$XP_HOME')
+
+from engine.rpg import award_xp, update_streak, check_lore_unlock, get_player
+from engine.achievements import ACHIEVEMENTS
+from engine.rpg import unlock_achievement, get_achievements
+
+# Boss fight — PR merge
+msg = '''$MERGE_MSG'''
+result = award_xp('pr_merge', msg[:100])
+
+xp = result['xp_gained']
+print()
+print('  ╔═══════════════════════════════════════════╗')
+print(f'  ║  👹 BOSS DEFEATED! +{xp} XP              ║')
+print('  ║  PR Merged — The codebase grows stronger  ║')
+print('  ╚═══════════════════════════════════════════╝')
+print()
+
+# Update streak
+update_streak()
+
+# Level up check
+if result['leveled_up']:
+    print(f'  ⬆️  LEVEL UP! Now level {result[\"new_level\"]}!')
+    lore = check_lore_unlock(result['new_level'])
+    if lore:
+        print(f'  {lore}')
+    print()
+" 2>/dev/null
+
+exit 0

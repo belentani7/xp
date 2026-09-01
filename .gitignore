@@ -1,0 +1,39 @@
+# XP Terminal RPG — .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Database (local player data)
+*.db
+*.db-wal
+*.db-shm
+player.db
+
+# Character data (local, per-user)
+character.json
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Generated badge
+web/badge-generated.svg
+
+# Temporary
+*.tmp
+*.bak

@@ -1,0 +1,88 @@
+# XP Terminal RPG — Default Configuration
+# The studio's original parameters, recovered from corrupted config files.
+
+# === XP Multipliers ===
+xp:
+  base:
+    commit: 10
+    pr_merge: 100
+    pr_open: 25
+    bugfix: 50
+    refactor: 75
+    feature: 40
+    hotfix: 60
+    review: 20
+    documentation: 30
+    test: 25
+    deploy: 50
+    revert: -10
+    force_push: -25
+
+  # Time of day multipliers
+  time_bonus:
+    night_owl:
+      hours: [2, 5]
+      multiplier: 1.5
+    early_bird:
+      hours: [5, 7]
+      multiplier: 1.2
+    business:
+      hours: [9, 17]
+      multiplier: 1.0
+    after_hours:
+      hours: [17, 22]
+      multiplier: 1.1
+    witching_hour:
+      hours: [22, 2]
+      multiplier: 1.3
+
+  # Level curve: level N requires N^2 × multiplier XP
+  level_curve:
+    formula: "n_squared"
+    multiplier: 100
+    max_level: 99
+
+# === Achievement Thresholds ===
+achievements:
+  enabled: true
+  notify_on_unlock: true
+  xp_rewards: true
+
+# === Sound Settings ===
+sound:
+  enabled: true
+  level_up: true
+  achievement: true
+  combat: true
+  volume: 80
+
+# === Display Preferences ===
+display:
+  colors: true
+  ascii_art: true
+  animations: true
+  compact_mode: false
+  show_time_bonus: true
+  show_lore: true
+
+# === Quest Settings ===
+quests:
+  daily_count: 3
+  weekly_count: 3
+  auto_generate: true
+  expire_daily: true
+  expire_weekly: true
+
+# === Combat Settings ===
+combat:
+  enabled: true
+  auto_on_bugfix: true
+  animation_speed: "normal"  # fast, normal, slow
+  difficulty: "adaptive"     # easy, normal, hard, adaptive
+
+# === Leaderboard ===
+leaderboard:
+  enabled: true
+  share_enabled: true
+  update_on_push: true
+  badge_enabled: true

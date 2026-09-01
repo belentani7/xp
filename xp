@@ -1,0 +1,673 @@
+#!/usr/bin/env python3
+"""
+xp — Terminal Coding RPG CLI
+
+Turn every coding session into an adventure.
+Every commit = XP. Every bug fix = enemy defeated. Every PR merged = boss fight won.
+
+Usage:
+    xp status          Show character sheet
+    xp quest           Show current quests
+    xp leaderboard     Show leaderboard
+    xp achievements    List achievements
+    xp equip [item]    Equip an item
+    xp class [name]    Choose class (warrior/mage/rogue/healer)
+    xp log             Show recent XP gains
+    xp streak          Show coding streak
+    xp items           List available equipment
+    xp lore            Show unlocked lore entries
+    xp combat [bug]    Fight a bug (manual combat)
+"""
+
+import json
+import os
+import sys
+from datetime import datetime
+from pathlib import Path
+
+# Add parent to path for engine imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+from engine.rpg import (
+    init_database, create_player, get_player, award_xp, update_streak,
+    get_xp_log, set_class, equip_item, unequip_item, get_achievements,
+    unlock_achievement, get_action_count, get_commit_count, check_lore_unlock,
+    xp_for_level, xp_for_next_level, DB_PATH
+)
+from engine.classes import get_class, list_classes, get_class_abilities, CLASSES
+from engine.items import get_item, list_items, get_item_display, ITEMS
+from engine.achievements import (
+    ACHIEVEMENTS, check_achievements, list_achievements_by_category,
+    get_achievement_display, CATEGORIES as ACH_CATEGORIES
+)
+from engine.quests import (
+    QUESTS, list_quests_by_category, get_quest_display,
+    CATEGORIES as QUEST_CATEGORIES
+)
+
+
+# === ANSI COLORS ===
+class C:
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
+    MAGENTA = "\033[35m"
+    CYAN = "\033[36m"
+    WHITE = "\033[37m"
+    BG_RED = "\033[41m"
+    BG_GREEN = "\033[42m"
+    BG_YELLOW = "\033[43m"
+    BG_BLUE = "\033[44m"
+    BG_MAGENTA = "\033[45m"
+    BG_CYAN = "\033[46m"
+    NEON_GREEN = "\033[92m"
+    NEON_YELLOW = "\033[93m"
+    NEON_BLUE = "\033[94m"
+    NEON_MAGENTA = "\033[95m"
+    NEON_CYAN = "\033[96m"
+
+
+def banner():
+    """Print the XP banner."""
+    print(f"""{C.NEON_CYAN}
+ ╔═══════════════════════════════════════════════╗
+ ║   {C.NEON_YELLOW}██╗  ██╗██████╗ {C.NEON_CYAN}                           ║
+ ║   {C.NEON_YELLOW}╚██╗██╔╝██╔══██╗{C.NEON_CYAN}    Terminal Coding RPG    ║
+ ║   {C.NEON_YELLOW} ╚███╔╝ ██████╔╝{C.NEON_CYAN}                           ║
+ ║   {C.NEON_YELLOW} ██╔██╗ ██╔═══╝ {C.NEON_CYAN}    Every commit matters   ║
+ ║   {C.NEON_YELLOW}██╔╝ ██╗██║     {C.NEON_CYAN}                           ║
+ ║   {C.NEON_YELLOW}╚═╝  ╚═╝╚═╝     {C.NEON_CYAN}    v1.0.0                 ║
+ ╚═══════════════════════════════════════════════╝{C.RESET}""")
+
+
+def bar(current, maximum, length=20, fill_char="█", empty_char="░", color=C.GREEN):
+    """Render a progress bar."""
+    if maximum <= 0:
+        return f"{empty_char * length}"
+    filled = min(length, int(length * current / maximum))
+    return f"{color}{fill_char * filled}{C.DIM}{empty_char * (length - filled)}{C.RESET}"
+
+
+def cmd_status():
+    """Show character sheet."""
+    player = get_player()
+    if not player:
+        print(f"{C.RED}No character found. Run 'install.sh' first.{C.RESET}")
+        return
+
+    p = player
+    level = p["level"]
+    xp = p["xp"]
+    next_xp = xp_for_next_level(level)
+    current_level_xp = xp_for_level(level)
+    xp_in_level = xp - current_level_xp
+    xp_needed = next_xp
+
+    class_name = p.get("class") or "Unchosen"
+    class_icon = "❓"
+    if class_name != "Unchosen" and class_name in CLASSES:
+        class_icon = CLASSES[class_name]["icon"]
+
+    print(f"\n{C.BOLD}{C.NEON_CYAN}{'═' * 50}")
+    print(f"  {C.NEON_YELLOW}⚔️  CHARACTER SHEET ⚔️{C.NEON_CYAN}")
+    print(f"{'═' * 50}{C.RESET}\n")
+
+    print(f"  {C.BOLD}Name:{C.RESET}    {p['name']}")
+    print(f"  {C.BOLD}Class:{C.RESET}   {class_icon} {class_name.title()}")
+    print(f"  {C.BOLD}Level:{C.RESET}   {C.NEON_YELLOW}{level}{C.RESET}")
+    print()
+
+    # HP Bar
+    hp = p.get("hp", 100)
+    max_hp = p.get("max_hp", 100)
+    print(f"  {C.RED}HP:{C.RESET}  {bar(hp, max_hp, color=C.RED)}  {hp}/{max_hp}")
+
+    # MP Bar
+    mp = p.get("mp", 50)
+    max_mp = p.get("max_mp", 50)
+    print(f"  {C.BLUE}MP:{C.RESET}  {bar(mp, max_mp, color=C.BLUE)}  {mp}/{max_mp}")
+
+    # XP Bar
+    print(f"  {C.YELLOW}XP:{C.RESET}  {bar(xp_in_level, xp_needed, color=C.YELLOW)}  {xp_in_level}/{xp_needed}")
+    print(f"       {C.DIM}(Total: {xp:,} XP){C.RESET}")
+    print()
+
+    # Stats
+    stats = p.get("stats", {})
+    if stats:
+        print(f"  {C.BOLD}{'─' * 30}")
+        print(f"  {C.BOLD}STATS{C.RESET}")
+        print(f"  {'─' * 30}")
+        stat_icons = {"STR": "💪", "INT": "🧠", "DEX": "⚡", "WIS": "📖", "CHA": "💬"}
+        for stat, val in stats.items():
+            icon = stat_icons.get(stat, "•")
+            base_val = p.get("base_stats", {}).get(stat, val)
+            bonus = val - base_val
+            bonus_str = f" {C.GREEN}(+{bonus}){C.RESET}" if bonus > 0 else ""
+            print(f"  {icon} {stat}: {C.BOLD}{val}{C.RESET}{bonus_str}")
+        print()
+
+    # Equipment
+    equipped = p.get("equipped", [])
+    if equipped:
+        print(f"  {C.BOLD}{'─' * 30}")
+        print(f"  {C.BOLD}EQUIPMENT{C.RESET}")
+        print(f"  {'─' * 30}")
+        for item_id in equipped:
+            try:
+                print(f"  {get_item_display(item_id)}")
+            except ValueError:
+                print(f"  {C.DIM}  {item_id}{C.RESET}")
+        print()
+
+    # Streak
+    streak = p.get("streak", {})
+    if streak:
+        current = streak.get("current_streak", 0)
+        longest = streak.get("longest_streak", 0)
+        fire = "🔥" * min(current, 7) if current > 0 else ""
+        print(f"  {C.BOLD}Streak:{C.RESET} {C.NEON_YELLOW}{current}{C.RESET} days {fire}")
+        print(f"  {C.BOLD}Best:{C.RESET}   {longest} days")
+        print()
+
+    print(f"{C.NEON_CYAN}{'═' * 50}{C.RESET}\n")
+
+
+def cmd_quest():
+    """Show current quests."""
+    player = get_player()
+    if not player:
+        print(f"{C.RED}No character found.{C.RESET}")
+        return
+
+    print(f"\n{C.BOLD}{C.NEON_MAGENTA}{'═' * 50}")
+    print(f"  📜 QUEST LOG")
+    print(f"{'═' * 50}{C.RESET}\n")
+
+    quests = list_quests_by_category()
+    for category in QUEST_CATEGORIES:
+        cat_quests = quests.get(category, [])
+        if not cat_quests:
+            continue
+        cat_label = category.upper()
+        print(f"  {C.BOLD}{C.NEON_YELLOW}── {cat_label} ──{C.RESET}")
+        for q in cat_quests:
+            # Estimate progress from player stats
+            progress = 0
+            at = q.get("action_type", "")
+            if at == "commit":
+                progress = get_commit_count()
+            elif at in ("bugfix", "feature", "refactor", "test", "documentation", "hotfix", "review", "deploy"):
+                progress = get_action_count(at)
+            elif at == "streak":
+                streak = player.get("streak", {})
+                progress = streak.get("current_streak", 0)
+            elif at == "pr_merge":
+                progress = get_action_count("pr_merge")
+            elif at == "any":
+                # Count unique action types
+                for action in ["commit", "bugfix", "feature", "refactor", "test", "documentation"]:
+                    if get_action_count(action) > 0:
+                        progress += 1
+
+            status = "✅" if progress >= q["target"] else "🔲"
+            pct = min(100, int((progress / q["target"]) * 100)) if q["target"] > 0 else 0
+            prog_bar = bar(min(progress, q["target"]), q["target"], length=10, color=C.NEON_GREEN if progress >= q["target"] else C.YELLOW)
+
+            print(f"  {status} {q['icon']} {C.BOLD}{q['name']}{C.RESET}")
+            print(f"     {C.DIM}{q['description']}{C.RESET}")
+            print(f"     {prog_bar} {progress}/{q['target']} ({C.YELLOW}+{q['xp_reward']} XP{C.RESET})")
+            print()
+
+    print(f"{C.NEON_MAGENTA}{'═' * 50}{C.RESET}\n")
+
+
+def cmd_achievements():
+    """List achievements."""
+    player = get_player()
+    if not player:
+        print(f"{C.RED}No character found.{C.RESET}")
+        return
+
+    unlocked = {a["achievement_id"] for a in get_achievements()}
+    total = len(ACHIEVEMENTS)
+    count = len(unlocked)
+
+    print(f"\n{C.BOLD}{C.NEON_YELLOW}{'═' * 50}")
+    print(f"  🏆 ACHIEVEMENTS ({count}/{total})")
+    print(f"{'═' * 50}{C.RESET}\n")
+
+    by_cat = list_achievements_by_category()
+    for category in ACH_CATEGORIES:
+        cat_achs = by_cat.get(category, [])
+        if not cat_achs:
+            continue
+        cat_label = category.upper()
+        cat_unlocked = sum(1 for a in cat_achs if a["id"] in unlocked)
+        print(f"  {C.BOLD}── {cat_label} ({cat_unlocked}/{len(cat_achs)}) ──{C.RESET}")
+        for ach in cat_achs:
+            is_unlocked = ach["id"] in unlocked
+            if is_unlocked:
+                print(f"  ✅ {ach['icon']} {C.BOLD}{ach['name']}{C.RESET} — {ach['description']} ({C.YELLOW}+{ach['xp_reward']} XP{C.RESET})")
+            else:
+                print(f"  {C.DIM}🔒 {ach['icon']} {ach['name']} — ???{C.RESET}")
+        print()
+
+    print(f"{C.NEON_YELLOW}{'═' * 50}{C.RESET}\n")
+
+
+def cmd_equip(args):
+    """Equip an item."""
+    if not args:
+        cmd_items()
+        return
+
+    item_id = args[0].lower()
+    if item_id == "--off" and len(args) > 1:
+        unequip_item(args[1].lower())
+        print(f"{C.GREEN}Unequipped {args[1]}.{C.RESET}")
+        return
+
+    try:
+        equip_item(item_id)
+        item = get_item(item_id)
+        print(f"{C.GREEN}{item['icon']} Equipped {item['name']}!{C.RESET}")
+        stats_str = ", ".join(f"{k}+{v}" if v > 0 else f"{k}{v}" for k, v in item["stats"].items())
+        print(f"  {C.DIM}{stats_str}{C.RESET}")
+        print(f"  {C.DIM}\"{item['flavor']}\"{C.RESET}")
+    except ValueError as e:
+        print(f"{C.RED}{e}{C.RESET}")
+
+
+def cmd_items():
+    """List available items."""
+    print(f"\n{C.BOLD}{C.NEON_BLUE}{'═' * 50}")
+    print(f"  🎒 EQUIPMENT SHOP")
+    print(f"{'═' * 50}{C.RESET}\n")
+
+    items = list_items()
+    by_type = {}
+    for item in items:
+        t = item["type"]
+        if t not in by_type:
+            by_type[t] = []
+        by_type[t].append(item)
+
+    type_labels = {"weapon": "⚔️  WEAPONS", "armor": "🛡️  ARMOR", "accessory": "💎 ACCESSORIES"}
+    for item_type in ["weapon", "armor", "accessory"]:
+        type_items = by_type.get(item_type, [])
+        if not type_items:
+            continue
+        print(f"  {C.BOLD}{type_labels.get(item_type, item_type.upper())}{C.RESET}")
+        for item in type_items:
+            print(f"  {get_item_display(item['id'])}")
+            print(f"     {C.DIM}\"{item['flavor']}\"{C.RESET}")
+            if item.get("level_required", 1) > 1:
+                print(f"     {C.DIM}Requires level {item['level_required']}{C.RESET}")
+        print()
+
+    print(f"{C.NEON_BLUE}{'═' * 50}")
+    print(f"  {C.DIM}Usage: xp equip <item_name>{C.RESET}")
+    print(f"{C.NEON_BLUE}{'═' * 50}{C.RESET}\n")
+
+
+def cmd_class(args):
+    """Choose or display character class."""
+    if not args:
+        # Show available classes
+        print(f"\n{C.BOLD}{C.NEON_MAGENTA}{'═' * 50}")
+        print(f"  🎭 CHARACTER CLASSES")
+        print(f"{'═' * 50}{C.RESET}\n")
+
+        for cls_info in list_classes():
+            cls = CLASSES[cls_info["key"]]
+            print(f"  {cls_info['icon']} {C.BOLD}{cls_info['name']}{C.RESET} — {cls_info['title']}")
+            print(f"     {C.DIM}{cls_info['description']}{C.RESET}")
+            stats_str = ", ".join(f"{k}: {v}" for k, v in cls["base_stats"].items())
+            print(f"     Stats: {stats_str}")
+            bonus_str = ", ".join(f"{k}: ×{v}" for k, v in cls["bonus_xp"].items())
+            print(f"     Bonuses: {bonus_str}")
+            print(f"     {C.DIM}\"{cls['lore']}\"{C.RESET}")
+            print()
+
+        print(f"  {C.DIM}Usage: xp class <warrior|mage|rogue|healer>{C.RESET}")
+        print(f"{C.NEON_MAGENTA}{'═' * 50}{C.RESET}\n")
+        return
+
+    class_name = args[0].lower()
+    try:
+        set_class(class_name)
+        cls = get_class(class_name)
+        print(f"\n{C.GREEN}{cls['icon']} Class set to {cls['name']} — {cls['title']}!{C.RESET}")
+        print(f"  {C.DIM}\"{cls['lore']}\"{C.RESET}")
+
+        # Check achievement
+        player = get_player()
+        if player:
+            unlocked_ids = {a["achievement_id"] for a in get_achievements()}
+            check_data = dict(player)
+            check_data["class"] = class_name
+            new_achs = check_achievements(check_data)
+            for ach_id in new_achs:
+                if ach_id not in unlocked_ids:
+                    if unlock_achievement(ach_id):
+                        ach = ACHIEVEMENTS[ach_id]
+                        print(f"\n  {C.NEON_YELLOW}🏆 Achievement Unlocked: {ach['icon']} {ach['name']}! (+{ach['xp_reward']} XP){C.RESET}")
+        print()
+    except ValueError as e:
+        print(f"{C.RED}{e}{C.RESET}")
+
+
+def cmd_log(args=None):
+    """Show recent XP gains."""
+    limit = 20
+    if args and args[0].isdigit():
+        limit = int(args[0])
+
+    logs = get_xp_log(limit)
+    print(f"\n{C.BOLD}{C.NEON_GREEN}{'═' * 50}")
+    print(f"  📊 XP LOG (last {limit})")
+    print(f"{'═' * 50}{C.RESET}\n")
+
+    if not logs:
+        print(f"  {C.DIM}No XP entries yet. Start coding!{C.RESET}\n")
+        return
+
+    for entry in logs:
+        amount = entry["amount"]
+        color = C.GREEN if amount > 0 else C.RED
+        sign = "+" if amount > 0 else ""
+        ts = entry["timestamp"][:16].replace("T", " ")
+        print(f"  {C.DIM}{ts}{C.RESET}  {color}{sign}{amount} XP{C.RESET}  {entry['reason']}")
+
+    total = sum(e["amount"] for e in logs)
+    print(f"\n  {C.BOLD}Shown total: {C.YELLOW}{total:+,} XP{C.RESET}")
+    print(f"{C.NEON_GREEN}{'═' * 50}{C.RESET}\n")
+
+
+def cmd_streak():
+    """Show coding streak."""
+    player = get_player()
+    if not player:
+        print(f"{C.RED}No character found.{C.RESET}")
+        return
+
+    streak = player.get("streak", {})
+    current = streak.get("current_streak", 0)
+    longest = streak.get("longest_streak", 0)
+
+    print(f"\n{C.BOLD}{C.NEON_YELLOW}{'═' * 50}")
+    print(f"  🔥 CODING STREAK")
+    print(f"{'═' * 50}{C.RESET}\n")
+
+    fire = "🔥" * min(current, 10) if current > 0 else "❄️"
+    print(f"  {C.BOLD}Current:{C.RESET} {C.NEON_YELLOW}{current}{C.RESET} days {fire}")
+    print(f"  {C.BOLD}Best:{C.RESET}    {longest} days")
+
+    # Visual streak calendar (last 7 days)
+    print(f"\n  {C.BOLD}Last 7 days:{C.RESET}")
+    from datetime import timedelta
+    today = datetime.now().date()
+    last_commit = streak.get("last_commit_date")
+    for i in range(6, -1, -1):
+        day = today - timedelta(days=i)
+        label = day.strftime("%a %m/%d")
+        is_today = (i == 0)
+        # Simple: only today is guaranteed active
+        if is_today and last_commit == today.isoformat():
+            print(f"    {label}  {C.GREEN}███ COMMIT{C.RESET}")
+        elif is_today:
+            print(f"    {label}  {C.DIM}░░░ waiting{C.RESET}")
+        else:
+            print(f"    {label}  {C.DIM}░░░{C.RESET}")
+
+    if current >= 7:
+        print(f"\n  {C.NEON_YELLOW}🔥 On fire! Keep it going!{C.RESET}")
+    elif current >= 3:
+        print(f"\n  {C.YELLOW}Good momentum. Don't break the chain!{C.RESET}")
+    elif current > 0:
+        print(f"\n  {C.DIM}Building up. Consistency is key.{C.RESET}")
+    else:
+        print(f"\n  {C.DIM}Start coding today to begin a streak!{C.RESET}")
+
+    print(f"\n{C.NEON_YELLOW}{'═' * 50}{C.RESET}\n")
+
+
+def cmd_leaderboard():
+    """Show leaderboard (local or shared)."""
+    player = get_player()
+
+    print(f"\n{C.BOLD}{C.NEON_CYAN}{'═' * 50}")
+    print(f"  🏆 LEADERBOARD")
+    print(f"{'═' * 50}{C.RESET}\n")
+
+    # Read shared leaderboard if exists
+    leaderboard_path = Path.home() / ".xp" / "leaderboard.json"
+    entries = []
+    if leaderboard_path.exists():
+        try:
+            entries = json.loads(leaderboard_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Add current player
+    if player:
+        entries.append({
+            "name": player["name"],
+            "level": player["level"],
+            "xp": player["xp"],
+            "class": player.get("class", "unchosen"),
+            "streak": player.get("streak", {}).get("current_streak", 0),
+        })
+
+    # Sort by XP
+    entries.sort(key=lambda e: e.get("xp", 0), reverse=True)
+
+    if not entries:
+        print(f"  {C.DIM}No entries yet. Be the first!{C.RESET}\n")
+        return
+
+    medals = ["🥇", "🥈", "🥉"]
+    for i, entry in enumerate(entries[:20]):
+        rank = medals[i] if i < 3 else f"#{i+1:>2}"
+        name = entry.get("name", "Unknown")
+        level = entry.get("level", 1)
+        xp = entry.get("xp", 0)
+        cls = entry.get("class", "unchosen")
+        streak = entry.get("streak", 0)
+        streak_str = f" 🔥{streak}" if streak > 0 else ""
+
+        is_you = player and name == player["name"] and level == player["level"]
+        highlight = C.NEON_YELLOW if is_you else ""
+        reset = C.RESET if is_you else ""
+
+        print(f"  {rank} {highlight}{name}{reset}  Lv.{level}  {xp:,} XP  [{cls}]{streak_str}")
+
+    print(f"\n  {C.DIM}Share your stats: copy ~/.xp/leaderboard.json{C.RESET}")
+    print(f"{C.NEON_CYAN}{'═' * 50}{C.RESET}\n")
+
+
+def cmd_lore():
+    """Show unlocked lore entries."""
+    player = get_player()
+    if not player:
+        print(f"{C.RED}No character found.{C.RESET}")
+        return
+
+    from engine.rpg import LORE_MESSAGES
+    conn = None
+    try:
+        from engine.rpg import get_db
+        conn = get_db()
+        rows = conn.execute(
+            "SELECT entry_id, unlocked_at FROM lore_entries WHERE player_id = 1 ORDER BY entry_id"
+        ).fetchall()
+        unlocked = {r["entry_id"] for r in rows}
+    finally:
+        if conn:
+            conn.close()
+
+    print(f"\n{C.BOLD}{C.NEON_MAGENTA}{'═' * 50}")
+    print(f"  📜 HIDDEN LORE ({len(unlocked)}/{len(LORE_MESSAGES)} entries)")
+    print(f"{'═' * 50}{C.RESET}\n")
+
+    if not LORE_MESSAGES:
+        print(f"  {C.DIM}The studio's secrets remain hidden...{C.RESET}\n")
+        return
+
+    for level in sorted(LORE_MESSAGES.keys()):
+        entry_id = f"level_{level}"
+        if entry_id in unlocked:
+            print(f"  {C.NEON_MAGENTA}Level {level}:{C.RESET} {LORE_MESSAGES[level]}")
+            print()
+        else:
+            print(f"  {C.DIM}Level {level}: 🔒 [Reach level {level} to unlock]{C.RESET}")
+            print()
+
+    print(f"{C.NEON_MAGENTA}{'═' * 50}{C.RESET}\n")
+
+
+def cmd_combat(args):
+    """Manual combat — fight a bug."""
+    player = get_player()
+    if not player:
+        print(f"{C.RED}No character found.{C.RESET}")
+        return
+
+    bug_name = " ".join(args) if args else "Mysterious Bug"
+
+    import random
+    severity = random.choice(["trivial", "minor", "moderate", "major", "critical"])
+    hp_map = {"trivial": 20, "minor": 40, "moderate": 80, "major": 150, "critical": 300}
+    xp_map = {"trivial": 10, "minor": 25, "moderate": 50, "major": 100, "critical": 200}
+
+    bug_hp = hp_map[severity]
+    bug_xp = xp_map[severity]
+
+    print(f"\n{C.BOLD}{C.RED}{'═' * 50}")
+    print(f"  ⚔️  COMBAT: {bug_name}")
+    print(f"  Severity: {severity.upper()}")
+    print(f"{'═' * 50}{C.RESET}\n")
+
+    # Simulate combat
+    player_str = player.get("stats", {}).get("STR", 5)
+    player_int = player.get("stats", {}).get("INT", 5)
+    player_dex = player.get("stats", {}).get("DEX", 5)
+
+    import time
+    damage = 0
+    turns = 0
+    while bug_hp > 0 and turns < 10:
+        turns += 1
+        hit = random.randint(1, player_str + player_int) + player_dex // 2
+        crit = random.random() < 0.15
+        if crit:
+            hit *= 2
+        bug_hp -= hit
+        damage += hit
+        crit_text = f" {C.NEON_YELLOW}CRITICAL!{C.RESET}" if crit else ""
+        print(f"  Turn {turns}: You deal {C.RED}{hit}{C.RESET} damage!{crit_text} (Bug HP: {max(0, bug_hp)})")
+        if bug_hp > 0:
+            time.sleep(0.3)
+
+    if bug_hp <= 0:
+        print(f"\n  {C.NEON_GREEN}🏆 VICTORY! {bug_name} defeated!{C.RESET}")
+        print(f"  {C.YELLOW}+{bug_xp} XP{C.RESET}")
+        result = award_xp("bugfix", f"Defeated: {bug_name}")
+        if result["leveled_up"]:
+            print(f"\n  {C.NEON_YELLOW}⬆️  LEVEL UP! You are now level {result['new_level']}!{C.RESET}")
+    else:
+        print(f"\n  {C.RED}💀 The bug escaped. Try again later.{C.RESET}")
+
+    print(f"\n{C.RED}{'═' * 50}{C.RESET}\n")
+
+
+def cmd_help():
+    """Show help."""
+    banner()
+    print(f"""
+{C.BOLD}COMMANDS:{C.RESET}
+  {C.NEON_CYAN}xp status{C.RESET}        Show character sheet (level, XP, stats)
+  {C.NEON_CYAN}xp quest{C.RESET}         Show current quests
+  {C.NEON_CYAN}xp achievements{C.RESET}  List unlocked achievements
+  {C.NEON_CYAN}xp items{C.RESET}         Browse equipment
+  {C.NEON_CYAN}xp equip [item]{C.RESET}  Equip a weapon/armor/accessory
+  {C.NEON_CYAN}xp class [name]{C.RESET}  Choose class (warrior/mage/rogue/healer)
+  {C.NEON_CYAN}xp log [N]{C.RESET}       Show last N XP entries (default: 20)
+  {C.NEON_CYAN}xp streak{C.RESET}        Show coding streak
+  {C.NEON_CYAN}xp leaderboard{C.RESET}   Show leaderboard
+  {C.NEON_CYAN}xp combat [bug]{C.RESET}  Fight a bug (manual combat!)
+  {C.NEON_CYAN}xp lore{C.RESET}          Show unlocked lore entries
+  {C.NEON_CYAN}xp help{C.RESET}          Show this help
+
+{C.BOLD}HOW IT WORKS:{C.RESET}
+  {C.GREEN}•{C.RESET} Git commits automatically earn XP via post-commit hook
+  {C.GREEN}•{C.RESET} Bug fixes, refactors, features earn bonus XP
+  {C.GREEN}•{C.RESET} PR merges = boss fights (100 XP!)
+  {C.GREEN}•{C.RESET} Level up to unlock abilities, equipment, and hidden lore
+  {C.GREEN}•{C.RESET} Build streaks by coding every day
+  {C.GREEN}•{C.RESET} The system remembers. Always.
+
+{C.BOLD}THE LORE:{C.RESET}
+  {C.DIM}This XP system was discovered in an abandoned game studio's source code.
+  Character classes reference real hacker archetypes. Achievements unlock
+  hidden lore about the fictional Studio 7. Reach level 99 to discover
+  the final message...{C.RESET}
+
+{C.BOLD}INSTALL GIT HOOKS:{C.RESET}
+  {C.DIM}Run ./install.sh to set up automatic XP tracking on every commit.{C.RESET}
+""")
+
+
+def main():
+    """Main CLI entry point."""
+    # Ensure database exists
+    if not DB_PATH.exists():
+        init_database()
+        create_player()
+
+    args = sys.argv[1:]
+    if not args:
+        cmd_status()
+        return
+
+    command = args[0].lower()
+    rest = args[1:]
+
+    commands = {
+        "status": lambda: cmd_status(),
+        "s": lambda: cmd_status(),
+        "quest": lambda: cmd_quest(),
+        "q": lambda: cmd_quest(),
+        "quests": lambda: cmd_quest(),
+        "achievements": lambda: cmd_achievements(),
+        "ach": lambda: cmd_achievements(),
+        "equip": lambda: cmd_equip(rest),
+        "items": lambda: cmd_items(),
+        "class": lambda: cmd_class(rest),
+        "log": lambda: cmd_log(rest),
+        "streak": lambda: cmd_streak(),
+        "leaderboard": lambda: cmd_leaderboard(),
+        "lb": lambda: cmd_leaderboard(),
+        "lore": lambda: cmd_lore(),
+        "combat": lambda: cmd_combat(rest),
+        "fight": lambda: cmd_combat(rest),
+        "help": lambda: cmd_help(),
+        "--help": lambda: cmd_help(),
+        "-h": lambda: cmd_help(),
+    }
+
+    handler = commands.get(command)
+    if handler:
+        handler()
+    else:
+        print(f"{C.RED}Unknown command: {command}{C.RESET}")
+        print(f"Run {C.NEON_CYAN}xp help{C.RESET} for available commands.")
+
+
+if __name__ == "__main__":
+    main()

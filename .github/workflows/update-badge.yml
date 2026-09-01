@@ -1,0 +1,102 @@
+name: Update XP Badge
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-badge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Read XP data
+        id: xp
+        run: |
+          # Initialize XP if needed
+          python3 -c "
+          import sys, json
+          sys.path.insert(0, '.')
+          from engine.rpg import init_database, create_player, get_player, xp_for_level, xp_for_next_level
+
+          init_database()
+          player = get_player()
+          if not player:
+              create_player('GitHub Actions')
+              player = get_player()
+
+          level = player['level']
+          xp = player['xp']
+          cls = player.get('class', 'unchosen')
+          streak = player.get('streak', {}).get('current_streak', 0)
+
+          # Calculate progress
+          level_base_xp = xp_for_level(level)
+          next_level_xp = xp_for_next_level(level)
+          progress = xp - level_base_xp
+          percent = min(100, int((progress / next_level_xp) * 100))
+          bar_width = max(1, int(120 * progress / next_level_xp))
+
+          class_icons = {'warrior': '⚔️', 'mage': '🔮', 'rogue': '🗡️', 'healer': '💚'}
+          icon = class_icons.get(cls, '❓')
+
+          data = {
+              'level': level,
+              'xp': f'{xp:,}',
+              'percent': percent,
+              'bar_width': bar_width,
+              'class_icon': icon,
+              'streak': f'{streak}d ' if streak > 0 else '',
+          }
+
+          for key, val in data.items():
+              print(f'{key}={val}')
+          " >> $GITHUB_OUTPUT
+
+      - name: Generate badge SVG
+        run: |
+          # Read template and fill in values
+          python3 -c "
+          import sys
+          sys.path.insert(0, '.')
+
+          level = '${{ steps.xp.outputs.level }}'
+          xp = '${{ steps.xp.outputs.xp }}'
+          percent = '${{ steps.xp.outputs.percent }}'
+          bar_width = '${{ steps.xp.outputs.bar_width }}'
+          class_icon = '${{ steps.xp.outputs.class_icon }}'
+          streak = '${{ steps.xp.outputs.streak }}'
+
+          with open('web/badge.svg', 'r') as f:
+              svg = f.read()
+
+          svg = svg.replace('{{LEVEL}}', level)
+          svg = svg.replace('{{XP}}', xp)
+          svg = svg.replace('{{PERCENT}}', percent)
+          svg = svg.replace('{{BAR_WIDTH}}', bar_width)
+          svg = svg.replace('{{CLASS_ICON}}', class_icon)
+          svg = svg.replace('{{STREAK}}', streak)
+
+          with open('web/badge-generated.svg', 'w') as f:
+              f.write(svg)
+
+          print(f'Badge generated: Level {level}, {xp} XP, {percent}%')
+          "
+
+      - name: Commit badge
+        run: |
+          git config user.name "XP Bot"
+          git config user.email "xp-bot@users.noreply.github.com"
+          git add web/badge-generated.svg
+          git diff --staged --quiet || git commit -m "docs: update XP badge [skip ci]"
+          git push
