@@ -201,8 +201,13 @@ def get_player() -> dict:
 
 
 def xp_for_level(level: int) -> int:
-    """Calculate total XP needed to reach a given level. Exponential: N²×100."""
-    return int(level * level * 100)
+    """Calculate total XP needed to reach a given level. Exponential: (N-1)²×100.
+
+    Level 1 = 0 XP (starting level). Level 2 = 100 XP. Level 10 = 8100 XP.
+    """
+    if level <= 1:
+        return 0
+    return int((level - 1) * (level - 1) * 100)
 
 
 def xp_for_next_level(level: int) -> int:
@@ -234,24 +239,30 @@ def get_time_bonus() -> tuple:
 
 
 def classify_commit(message: str) -> str:
-    """Classify a commit message to determine action type."""
+    """Classify a commit message to determine action type.
+
+    Order matters — specific keywords checked before generic ones.
+    """
     msg = message.lower()
-    if any(w in msg for w in ["fix", "bug", "patch", "resolve", "debug"]):
-        return "bugfix"
-    if any(w in msg for w in ["refactor", "clean", "reorganize", "restructure"]):
-        return "refactor"
-    if any(w in msg for w in ["feat", "feature", "add", "new", "implement"]):
-        return "feature"
-    if any(w in msg for w in ["hotfix", "urgent", "emergency", "critical fix"]):
-        return "hotfix"
-    if any(w in msg for w in ["doc", "readme", "documentation", "comment"]):
-        return "documentation"
-    if any(w in msg for w in ["test", "spec", "coverage"]):
-        return "test"
+    # Highest priority first
     if any(w in msg for w in ["revert"]):
         return "revert"
     if any(w in msg for w in ["force"]):
         return "force_push"
+    if any(w in msg for w in ["hotfix", "urgent", "emergency", "critical fix"]):
+        return "hotfix"
+    if any(w in msg for w in ["test", "spec", "coverage"]):
+        return "test"
+    if any(w in msg for w in ["doc", "readme", "documentation"]):
+        return "documentation"
+    if any(w in msg for w in ["refactor", "clean", "reorganize", "restructure"]):
+        return "refactor"
+    if any(w in msg for w in ["fix", "bug", "patch", "resolve", "debug"]):
+        return "bugfix"
+    if any(w in msg for w in ["feat", "feature", "add", "new", "implement"]):
+        return "feature"
+    if any(w in msg for w in ["deploy", "release", "publish"]):
+        return "deploy"
     return "commit"
 
 

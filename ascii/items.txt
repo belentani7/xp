@@ -1,0 +1,75 @@
+
+╔══════════════════════════════════════════════════════════════╗
+║                    EQUIPMENT ARMORY                          ║
+║         Recovered from Studio 7's inventory system          ║
+╚══════════════════════════════════════════════════════════════╝
+
+─── WEAPONS ───────────────────────────────────────────────────
+
+  VIM (Dagger)              NEOVIM (Sword)           VSCODE (Staff)
+     ╱╲                        ╱╲                        ╱╲
+    ╱  ╲                      ╱  ╲                      ╱  ╲
+   ╱    ╲                    ╱    ╲                    ╱ ★  ╲
+   ╲    ╱                    ╲    ╱                   ╱      ╲
+    ╲  ╱                      ╲  ╱                    ╲      ╱
+     ╲╱                        ╲╱                      ╲    ╱
+     ║║                        ║║                       ╲  ╱
+     ║║                        ╠╣                        ╲╱
+     ╚╝                        ╚╝                         ║
+                                                          ╚╝
+  "Lightweight.               "Async. Extensible.        "Extension marketplace.
+   Deadly. Exit                The modern warrior's       Infinite spells."
+   not included."              choice."
+
+  EMACS (Tome)             CURSOR (Enchanted)       JETBRAINS (Hammer)
+  ╔══════╗                    ╱╲                        ╔══╗
+  ║ EMACS ║                   ╱✦╲                      ║  ║
+  ║──────║                   ╱   ╲                     ╠══╣
+  ║ M-x  ║                   ╲   ╱                     ║  ║
+  ║ shell║                    ╲✦╱                      ╚══╝
+  ║ RET  ║                     ║                        ║║
+  ╚══════╝                     ║║                       ║║
+     ╚╝                        ╚╝
+  "Also an editor,            "AI-enchanted.            "Heavy. Slow to start.
+   allegedly."                 Code writes itself."      Unstoppable."
+
+─── ARMOR ─────────────────────────────────────────────────────
+
+  DEV HOODIE              HEADPHONES              COFFEE
+    ╭───╮                  ╭─────╮                 ╭──╮
+    │   │                  │ ┌─┐ │                 │  │  ☕
+    │   │                  │ │ │ │                 ╰──╯
+    ╰─┬─╯                  ╰─┴─┴─╯                ~~~~~
+      │                      │                   "Energy +2.
+    ╱   ╲                    │                    Sleep -10."
+   ╱     ╲
+  "+5 Focus.             "Blocks out the world.
+   -1 Social."            Lets the code in."
+
+─── ACCESSORIES ───────────────────────────────────────────────
+
+  MECH KEYBOARD           DUAL MONITORS           RUBBER DUCK
+  ┌─────────────┐         ┌──────┐┌──────┐        ╭───╮
+  │ ▓▓ ▓▓ ▓▓ ▓▓ │         │ CODE ││ SO   │        │ ◉ │
+  │ ▓▓ ▓▓ ▓▓ ▓▓ │         │      ││      │        │ ─ │
+  │ ▓▓ ▓▓ ▓▓ ▓▓ │         └──────┘└──────┘        ╰───╯
+  │ ▓▓▓▓▓▓▓▓▓▓▓ │
+  └─────────────┘         "One for code.           "The duck already
+  "Click clack.           One for Stack Overflow."  knows. Always."
+   Coworkers beware."
+
+  LAPTOP STICKERS         ARCH LINUX              ENERGY DRINK
+  ┌──────┐               ╭──────╮                ╭──────╮
+  │ ○ ○ ○│               │ ╱╲   │                │ ╱──╲ │
+  │ ○ ○ ○│               │╱  ╲  │                ││ ⚡ ││
+  │ ○ ○ ○│               ╰──────╯                │╲  ╱ │
+  └──────┘               "btw."                  ╰──────╯
+  "Each one a story."                             "Speed +5.
+                                                   Judgment -2."
+
+═══════════════════════════════════════════════════════════════
+
+  RARITY TIERS:
+  ◻ Common    ◈ Uncommon    ◆ Rare    ★ Epic    ✦ Legendary
+
+═══════════════════════════════════════════════════════════════

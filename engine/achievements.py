@@ -400,6 +400,30 @@ ACHIEVEMENTS = {
         "category": "special",
         "check": lambda p: p.get("lore_count", 0) >= 8,
     },
+    "polyglot": {
+        "name": "Polyglot",
+        "description": "Make commits across 3 different repos",
+        "xp_reward": 75,
+        "icon": "🌐",
+        "category": "coding",
+        "check": lambda p: p.get("repos_contributed", 0) >= 3,
+    },
+    "speed_demon": {
+        "name": "Speed Demon",
+        "description": "Make 10 commits in a single day",
+        "xp_reward": 60,
+        "icon": "💨",
+        "category": "coding",
+        "check": lambda p: p.get("commits_today", 0) >= 10,
+    },
+    "architect": {
+        "name": "The Architect",
+        "description": "Ship 3 feature branches from scratch",
+        "xp_reward": 200,
+        "icon": "🏗️",
+        "category": "collaboration",
+        "check": lambda p: p.get("pr_merges", 0) >= 3,
+    },
 }
 
 CATEGORIES = ["coding", "git", "collaboration", "streaks", "time", "mastery", "special"]
