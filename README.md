@@ -40,13 +40,13 @@ Level up your character, unlock achievements, build streaks, and discover hidden
 ### One-liner
 
 ```bash
-git clone https://github.com/yourusername/xp.git && cd xp && bash install.sh
+git clone https://github.com/belentani7/xp.git && cd xp && bash install.sh
 ```
 
 ### Manual
 
 ```bash
-git clone https://github.com/yourusername/xp.git
+git clone https://github.com/belentani7/xp.git
 cd xp
 chmod +x install.sh
 ./install.sh
@@ -68,6 +68,16 @@ cp ~/.xp/hooks/post-commit .git/hooks/
 cp ~/.xp/hooks/post-merge .git/hooks/
 chmod +x .git/hooks/post-commit .git/hooks/post-merge
 ```
+
+## Git hooks: instalación segura
+
+La instalación predeterminada **no cambia** `core.hooksPath` global de Git y, por tanto, no desactiva los hooks existentes de otros proyectos. Para activar expresamente los hooks de XP en tu cuenta:
+
+```bash
+XP_INSTALL_GLOBAL_HOOKS=1 bash install.sh
+```
+
+Si ya existe una ruta global de hooks, el instalador la respeta y no la sobreescribe. Como alternativa, usa los hooks únicamente en un repositorio determinado. Revisa su comportamiento antes de instalarlos y mantén una copia de hooks propios.
 
 ## 📋 Commands
 
