@@ -4,7 +4,12 @@
 # One command. Infinite adventure.
 # =============================================================
 
-set -e
+set -euo pipefail
+
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "Python 3 is required to install XP." >&2
+    exit 1
+fi
 
 XP_HOME="$HOME/.xp"
 XP_SRC="$(cd "$(dirname "$0")" && pwd)"
@@ -51,22 +56,20 @@ mkdir -p "$XP_HOME/database"
 cp -f "$XP_SRC/database/schema.sql" "$XP_HOME/database/"
 
 # Initialize database via Python
-python3 -c "
+XP_HOME="$XP_HOME" XP_PLAYER_NAME="${USER:-Coder}" python3 - <<'PY'
+import os
 import sys
-sys.path.insert(0, '$XP_HOME')
-from engine.rpg import init_database, create_player
+sys.path.insert(0, os.environ["XP_HOME"])
+from engine.rpg import init_database, create_player, get_player
+
 init_database()
-# Create player if not exists
-from engine.rpg import get_player
 if get_player() is None:
-    name = '${USER:-Coder}'
+    name = os.environ.get("XP_PLAYER_NAME", "Coder")
     create_player(name)
-    print(f'  Character created: {name}')
+    print(f"  Character created: {name}")
 else:
-    print('  Character already exists. Keeping your progress.')
-" 2>/dev/null || {
-    echo -e "${YELLOW}  Warning: Could not initialize database. Check Python 3 is installed.${NC}"
-}
+    print("  Character already exists. Keeping your progress.")
+PY
 
 # === 4. Install git hooks ===
 echo -e "${GREEN}[4/6]${NC} Setting up git hooks..."
@@ -78,20 +81,26 @@ cp -f "$XP_SRC/hooks/post-merge" "$XP_HOME/hooks/"
 chmod +x "$XP_HOME/hooks/post-commit"
 chmod +x "$XP_HOME/hooks/post-merge"
 
-# Set up global git hooks directory
-if command -v git &> /dev/null; then
-    EXISTING_HOOKS=$(git config --global core.hooksPath 2>/dev/null || echo "")
-    if [ -z "$EXISTING_HOOKS" ]; then
-        git config --global core.hooksPath "$XP_HOME/hooks"
-        echo -e "  ${GREEN}Global git hooks installed at ${XP_HOME}/hooks${NC}"
+# Never change global Git hooks without explicit opt-in: it can disable existing hooks.
+if command -v git >/dev/null 2>&1; then
+    if [ "${XP_INSTALL_GLOBAL_HOOKS:-0}" = "1" ]; then
+        EXISTING_HOOKS="$(git config --global --get core.hooksPath 2>/dev/null || true)"
+        if [ -z "$EXISTING_HOOKS" ]; then
+            git config --global core.hooksPath "$XP_HOME/hooks"
+            echo -e "  ${GREEN}Global XP hooks enabled.${NC}"
+        elif [ "$EXISTING_HOOKS" = "$XP_HOME/hooks" ]; then
+            echo -e "  ${GREEN}XP hooks are already configured.${NC}"
+        else
+            echo -e "  ${YELLOW}Existing global Git hooks preserved: $EXISTING_HOOKS${NC}"
+            echo "  XP hooks were not activated."
+        fi
     else
-        echo -e "  ${YELLOW}Git hooks path already set to: ${EXISTING_HOOKS}${NC}"
-        echo -e "  ${YELLOW}Copy hooks manually:${NC}"
-        echo -e "  cp ${XP_HOME}/hooks/post-commit ${EXISTING_HOOKS}/"
-        echo -e "  cp ${XP_HOME}/hooks/post-merge ${EXISTING_HOOKS}/"
+        echo "  Git hooks installed locally, not activated globally."
+        echo "  Opt in: XP_INSTALL_GLOBAL_HOOKS=1 bash install.sh"
+        echo "  Or install hooks in one selected repository."
     fi
 else
-    echo -e "  ${YELLOW}Warning: git not found. Hooks will be set up when git is available.${NC}"
+    echo -e "  ${YELLOW}Git not found; hooks copied for later use.${NC}"
 fi
 
 # === 5. Copy display scripts and config ===
