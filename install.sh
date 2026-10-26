@@ -6,12 +6,13 @@
 
 set -euo pipefail
 
-if ! command -v python3 >/dev/null 2>&1; then
+XP_PYTHON="${XP_PYTHON:-python3}"
+if ! command -v "$XP_PYTHON" >/dev/null 2>&1; then
     echo "Python 3 is required to install XP." >&2
     exit 1
 fi
 
-XP_HOME="$HOME/.xp"
+XP_HOME="${XP_HOME:-$HOME/.xp}"
 XP_SRC="$(cd "$(dirname "$0")" && pwd)"
 
 # Colors
@@ -56,7 +57,7 @@ mkdir -p "$XP_HOME/database"
 cp -f "$XP_SRC/database/schema.sql" "$XP_HOME/database/"
 
 # Initialize database via Python
-XP_HOME="$XP_HOME" XP_PLAYER_NAME="${USER:-Coder}" python3 - <<'PY'
+XP_HOME="$XP_HOME" XP_PLAYER_NAME="${USER:-Coder}" "$XP_PYTHON" - <<'PY'
 import os
 import sys
 sys.path.insert(0, os.environ["XP_HOME"])
@@ -114,7 +115,11 @@ mkdir -p "$XP_HOME/display" "$XP_HOME/config" "$XP_HOME/ascii"
 echo -e "${GREEN}[6/6]${NC} Adding xp to PATH..."
 
 # Create symlink in /usr/local/bin or ~/.local/bin
-if [ -d "$HOME/.local/bin" ]; then
+if [ -n "${XP_BIN_DIR:-}" ]; then
+    mkdir -p "$XP_BIN_DIR"
+    ln -sf "$XP_HOME/xp" "$XP_BIN_DIR/xp"
+    echo "  Linked to $XP_BIN_DIR/xp"
+elif [ -d "$HOME/.local/bin" ]; then
     ln -sf "$XP_HOME/xp" "$HOME/.local/bin/xp" 2>/dev/null || true
     echo -e "  Linked to ~/.local/bin/xp"
 elif [ -d "/usr/local/bin" ] && [ -w "/usr/local/bin" ]; then
@@ -136,7 +141,7 @@ echo -e "${CYAN}═════════════════════�
 echo ""
 
 # Print character sheet
-python3 "$XP_HOME/xp" status 2>/dev/null || echo -e "  Run ${CYAN}xp status${NC} to see your character!"
+XP_HOME="$XP_HOME" "$XP_PYTHON" "$XP_HOME/xp" status 2>/dev/null || echo -e "  Run ${CYAN}xp status${NC} to see your character!"
 
 echo ""
 echo -e "${BOLD}NEXT STEPS:${NC}"

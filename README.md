@@ -2,7 +2,7 @@
 
 **Turn every coding session into an adventure.**
 
-Every git commit earns XP. Every bug fix defeats an enemy. Every PR merged wins a boss fight.
+Every git commit earns XP. Every bug fix defeats an enemy. Every local merge commit wins a boss fight.
 Level up your character, unlock achievements, build streaks, and discover hidden lore.
 
 ```
@@ -25,7 +25,7 @@ Level up your character, unlock achievements, build streaks, and discover hidden
 | Refactor | +75 XP | Commit messages with "refactor", "clean" |
 | New feature | +40 XP | Commit messages with "feat", "add", "new" |
 | Hotfix | +60 XP | Emergency fixes earn bonus XP |
-| PR merged | +100 XP | Boss fight victory! |
+| Local merge commit | +100 XP | Boss fight victory! |
 | Code review | +20 XP | Reviewing others' code |
 | Documentation | +30 XP | Writing docs |
 | Tests | +25 XP | Test commits |
@@ -56,8 +56,8 @@ The installer:
 1. Copies the RPG engine to `~/.xp/`
 2. Creates your SQLite character database
 3. Initializes you as a Level 1 character
-4. Sets up global git hooks (auto-awards XP on every commit)
-5. Adds `xp` to your PATH
+4. Copies optional Git hooks without changing your global Git configuration
+5. Links `xp` into a local bin directory (add it to your PATH if needed)
 
 ### Git Hooks (per-repo)
 
@@ -78,6 +78,10 @@ XP_INSTALL_GLOBAL_HOOKS=1 bash install.sh
 ```
 
 Si ya existe una ruta global de hooks, el instalador la respeta y no la sobreescribe. Como alternativa, usa los hooks únicamente en un repositorio determinado. Revisa su comportamiento antes de instalarlos y mantén una copia de hooks propios.
+
+Para una instalación aislada, puedes indicar `XP_HOME` y `XP_BIN_DIR` al ejecutar el instalador. Los hooks y el motor utilizarán el mismo directorio `XP_HOME` cuando esa variable esté definida.
+
+El hook de fusión detecta commits de merge locales. Las actualizaciones fast-forward y los PR fusionados en GitHub mediante squash o rebase no generan este evento local.
 
 ## 📋 Commands
 

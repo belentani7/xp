@@ -21,6 +21,8 @@ jobs:
         run: bash -n install.sh && bash -n hooks/post-commit && bash -n hooks/post-merge
       - name: Validate Python sources
         run: python3 -m compileall -q engine && python3 -m py_compile setup.py
+      - name: Exercise installer and Git hooks
+        run: python3 -m unittest discover -s tests -v
       - name: Verify explicit opt-in for global hooks
         run: |
           python3 - <<'PY'
