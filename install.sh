@@ -114,21 +114,31 @@ mkdir -p "$XP_HOME/display" "$XP_HOME/config" "$XP_HOME/ascii"
 # === 6. Add to PATH ===
 echo -e "${GREEN}[6/6]${NC} Adding xp to PATH..."
 
-# Create symlink in /usr/local/bin or ~/.local/bin
+# Only create a new link or keep a link that already belongs to XP.
+# Never overwrite another executable, directory, or even a dangling symlink.
+link_xp() {
+    local bin_dir="$1"
+    local destination="$bin_dir/xp"
+    mkdir -p "$bin_dir"
+    if [ -L "$destination" ] && [ "$(readlink "$destination")" = "$XP_HOME/xp" ]; then
+        echo "  XP already linked at $destination"
+    elif [ -e "$destination" ] || [ -L "$destination" ]; then
+        echo -e "  ${YELLOW}Preserved existing $destination; XP was not linked.${NC}"
+    elif ln -s "$XP_HOME/xp" "$destination" 2>/dev/null; then
+        echo "  Linked to $destination"
+    else
+        echo -e "  ${YELLOW}Could not link XP at $destination; installation continues.${NC}"
+    fi
+}
+
 if [ -n "${XP_BIN_DIR:-}" ]; then
-    mkdir -p "$XP_BIN_DIR"
-    ln -sf "$XP_HOME/xp" "$XP_BIN_DIR/xp"
-    echo "  Linked to $XP_BIN_DIR/xp"
+    link_xp "$XP_BIN_DIR"
 elif [ -d "$HOME/.local/bin" ]; then
-    ln -sf "$XP_HOME/xp" "$HOME/.local/bin/xp" 2>/dev/null || true
-    echo -e "  Linked to ~/.local/bin/xp"
+    link_xp "$HOME/.local/bin"
 elif [ -d "/usr/local/bin" ] && [ -w "/usr/local/bin" ]; then
-    ln -sf "$XP_HOME/xp" "/usr/local/bin/xp" 2>/dev/null || true
-    echo -e "  Linked to /usr/local/bin/xp"
+    link_xp "/usr/local/bin"
 else
-    mkdir -p "$HOME/.local/bin"
-    ln -sf "$XP_HOME/xp" "$HOME/.local/bin/xp" 2>/dev/null || true
-    echo -e "  Linked to ~/.local/bin/xp"
+    link_xp "$HOME/.local/bin"
     echo -e "  ${YELLOW}Add ~/.local/bin to your PATH if not already:${NC}"
     echo -e "  ${CYAN}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
 fi

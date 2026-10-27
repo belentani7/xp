@@ -72,6 +72,32 @@ class GitHookIntegrationTest(unittest.TestCase):
         self.assertIn("Existing global Git hooks preserved", result.stdout)
         self.assertIn("hooksPath = /existing/hooks", self.global_config.read_text(encoding="utf-8"))
 
+    def test_installer_preserves_existing_executable(self):
+        destination = self.workspace / "bin" / "xp"
+        destination.unlink()
+        destination.write_text("unrelated xp executable\\n", encoding="utf-8")
+        result = self.run_checked([self.bash, "install.sh"], cwd=ROOT)
+        self.assertIn("Preserved existing", result.stdout)
+        self.assertFalse(destination.is_symlink())
+        self.assertEqual(destination.read_text(encoding="utf-8"), "unrelated xp executable\\n")
+
+    def test_installer_preserves_dangling_symlink(self):
+        destination = self.workspace / "bin" / "xp"
+        destination.unlink()
+        unrelated = self.workspace / "missing-unrelated-xp"
+        destination.symlink_to(unrelated)
+        result = self.run_checked([self.bash, "install.sh"], cwd=ROOT)
+        self.assertIn("Preserved existing", result.stdout)
+        self.assertTrue(destination.is_symlink())
+        self.assertEqual(destination.readlink(), unrelated)
+
+    def test_installer_keeps_its_own_link_on_reinstall(self):
+        destination = self.workspace / "bin" / "xp"
+        self.assertTrue(destination.is_symlink())
+        result = self.run_checked([self.bash, "install.sh"], cwd=ROOT)
+        self.assertIn("XP already linked", result.stdout)
+        self.assertEqual(destination.readlink(), self.profile / "xp")
+
     def test_commit_and_merge_messages_are_data_not_code(self):
         commit_message = (
             "fix: '''; __import__('pathlib').Path('COMMIT_EXECUTED')"
