@@ -16,7 +16,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="XP Project",
-    url="https://github.com/yourusername/xp",
+    url="https://github.com/belentani7/xp",
     packages=find_packages(),
     python_requires=">=3.7",
     install_requires=[],  # stdlib only!

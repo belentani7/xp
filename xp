@@ -3,7 +3,7 @@
 xp — Terminal Coding RPG CLI
 
 Turn every coding session into an adventure.
-Every commit = XP. Every bug fix = enemy defeated. Every PR merged = boss fight won.
+Every commit = XP. Every bug fix = enemy defeated. Every local merge commit = boss fight won.
 
 Usage:
     xp status          Show character sheet
@@ -446,7 +446,7 @@ def cmd_leaderboard():
     print(f"{'═' * 50}{C.RESET}\n")
 
     # Read shared leaderboard if exists
-    leaderboard_path = Path.home() / ".xp" / "leaderboard.json"
+    leaderboard_path = DB_PATH.parent / "leaderboard.json"
     entries = []
     if leaderboard_path.exists():
         try:
@@ -607,7 +607,7 @@ def cmd_help():
 {C.BOLD}HOW IT WORKS:{C.RESET}
   {C.GREEN}•{C.RESET} Git commits automatically earn XP via post-commit hook
   {C.GREEN}•{C.RESET} Bug fixes, refactors, features earn bonus XP
-  {C.GREEN}•{C.RESET} PR merges = boss fights (100 XP!)
+  {C.GREEN}•{C.RESET} Local merge commits = boss fights (100 XP!)
   {C.GREEN}•{C.RESET} Level up to unlock abilities, equipment, and hidden lore
   {C.GREEN}•{C.RESET} Build streaks by coding every day
   {C.GREEN}•{C.RESET} The system remembers. Always.

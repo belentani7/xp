@@ -4,9 +4,15 @@
 # One command. Infinite adventure.
 # =============================================================
 
-set -e
+set -euo pipefail
 
-XP_HOME="$HOME/.xp"
+XP_PYTHON="${XP_PYTHON:-python3}"
+if ! command -v "$XP_PYTHON" >/dev/null 2>&1; then
+    echo "Python 3 is required to install XP." >&2
+    exit 1
+fi
+
+XP_HOME="${XP_HOME:-$HOME/.xp}"
 XP_SRC="$(cd "$(dirname "$0")" && pwd)"
 
 # Colors
@@ -51,22 +57,20 @@ mkdir -p "$XP_HOME/database"
 cp -f "$XP_SRC/database/schema.sql" "$XP_HOME/database/"
 
 # Initialize database via Python
-python3 -c "
+XP_HOME="$XP_HOME" XP_PLAYER_NAME="${USER:-Coder}" "$XP_PYTHON" - <<'PY'
+import os
 import sys
-sys.path.insert(0, '$XP_HOME')
-from engine.rpg import init_database, create_player
+sys.path.insert(0, os.environ["XP_HOME"])
+from engine.rpg import init_database, create_player, get_player
+
 init_database()
-# Create player if not exists
-from engine.rpg import get_player
 if get_player() is None:
-    name = '${USER:-Coder}'
+    name = os.environ.get("XP_PLAYER_NAME", "Coder")
     create_player(name)
-    print(f'  Character created: {name}')
+    print(f"  Character created: {name}")
 else:
-    print('  Character already exists. Keeping your progress.')
-" 2>/dev/null || {
-    echo -e "${YELLOW}  Warning: Could not initialize database. Check Python 3 is installed.${NC}"
-}
+    print("  Character already exists. Keeping your progress.")
+PY
 
 # === 4. Install git hooks ===
 echo -e "${GREEN}[4/6]${NC} Setting up git hooks..."
@@ -78,20 +82,26 @@ cp -f "$XP_SRC/hooks/post-merge" "$XP_HOME/hooks/"
 chmod +x "$XP_HOME/hooks/post-commit"
 chmod +x "$XP_HOME/hooks/post-merge"
 
-# Set up global git hooks directory
-if command -v git &> /dev/null; then
-    EXISTING_HOOKS=$(git config --global core.hooksPath 2>/dev/null || echo "")
-    if [ -z "$EXISTING_HOOKS" ]; then
-        git config --global core.hooksPath "$XP_HOME/hooks"
-        echo -e "  ${GREEN}Global git hooks installed at ${XP_HOME}/hooks${NC}"
+# Never change global Git hooks without explicit opt-in: it can disable existing hooks.
+if command -v git >/dev/null 2>&1; then
+    if [ "${XP_INSTALL_GLOBAL_HOOKS:-0}" = "1" ]; then
+        EXISTING_HOOKS="$(git config --global --get core.hooksPath 2>/dev/null || true)"
+        if [ -z "$EXISTING_HOOKS" ]; then
+            git config --global core.hooksPath "$XP_HOME/hooks"
+            echo -e "  ${GREEN}Global XP hooks enabled.${NC}"
+        elif [ "$EXISTING_HOOKS" = "$XP_HOME/hooks" ]; then
+            echo -e "  ${GREEN}XP hooks are already configured.${NC}"
+        else
+            echo -e "  ${YELLOW}Existing global Git hooks preserved: $EXISTING_HOOKS${NC}"
+            echo "  XP hooks were not activated."
+        fi
     else
-        echo -e "  ${YELLOW}Git hooks path already set to: ${EXISTING_HOOKS}${NC}"
-        echo -e "  ${YELLOW}Copy hooks manually:${NC}"
-        echo -e "  cp ${XP_HOME}/hooks/post-commit ${EXISTING_HOOKS}/"
-        echo -e "  cp ${XP_HOME}/hooks/post-merge ${EXISTING_HOOKS}/"
+        echo "  Git hooks installed locally, not activated globally."
+        echo "  Opt in: XP_INSTALL_GLOBAL_HOOKS=1 bash install.sh"
+        echo "  Or install hooks in one selected repository."
     fi
 else
-    echo -e "  ${YELLOW}Warning: git not found. Hooks will be set up when git is available.${NC}"
+    echo -e "  ${YELLOW}Git not found; hooks copied for later use.${NC}"
 fi
 
 # === 5. Copy display scripts and config ===
@@ -104,17 +114,31 @@ mkdir -p "$XP_HOME/display" "$XP_HOME/config" "$XP_HOME/ascii"
 # === 6. Add to PATH ===
 echo -e "${GREEN}[6/6]${NC} Adding xp to PATH..."
 
-# Create symlink in /usr/local/bin or ~/.local/bin
-if [ -d "$HOME/.local/bin" ]; then
-    ln -sf "$XP_HOME/xp" "$HOME/.local/bin/xp" 2>/dev/null || true
-    echo -e "  Linked to ~/.local/bin/xp"
+# Only create a new link or keep a link that already belongs to XP.
+# Never overwrite another executable, directory, or even a dangling symlink.
+link_xp() {
+    local bin_dir="$1"
+    local destination="$bin_dir/xp"
+    mkdir -p "$bin_dir"
+    if [ -L "$destination" ] && [ "$(readlink "$destination")" = "$XP_HOME/xp" ]; then
+        echo "  XP already linked at $destination"
+    elif [ -e "$destination" ] || [ -L "$destination" ]; then
+        echo -e "  ${YELLOW}Preserved existing $destination; XP was not linked.${NC}"
+    elif ln -s "$XP_HOME/xp" "$destination" 2>/dev/null; then
+        echo "  Linked to $destination"
+    else
+        echo -e "  ${YELLOW}Could not link XP at $destination; installation continues.${NC}"
+    fi
+}
+
+if [ -n "${XP_BIN_DIR:-}" ]; then
+    link_xp "$XP_BIN_DIR"
+elif [ -d "$HOME/.local/bin" ]; then
+    link_xp "$HOME/.local/bin"
 elif [ -d "/usr/local/bin" ] && [ -w "/usr/local/bin" ]; then
-    ln -sf "$XP_HOME/xp" "/usr/local/bin/xp" 2>/dev/null || true
-    echo -e "  Linked to /usr/local/bin/xp"
+    link_xp "/usr/local/bin"
 else
-    mkdir -p "$HOME/.local/bin"
-    ln -sf "$XP_HOME/xp" "$HOME/.local/bin/xp" 2>/dev/null || true
-    echo -e "  Linked to ~/.local/bin/xp"
+    link_xp "$HOME/.local/bin"
     echo -e "  ${YELLOW}Add ~/.local/bin to your PATH if not already:${NC}"
     echo -e "  ${CYAN}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
 fi
@@ -127,7 +151,7 @@ echo -e "${CYAN}═════════════════════�
 echo ""
 
 # Print character sheet
-python3 "$XP_HOME/xp" status 2>/dev/null || echo -e "  Run ${CYAN}xp status${NC} to see your character!"
+XP_HOME="$XP_HOME" "$XP_PYTHON" "$XP_HOME/xp" status 2>/dev/null || echo -e "  Run ${CYAN}xp status${NC} to see your character!"
 
 echo ""
 echo -e "${BOLD}NEXT STEPS:${NC}"
