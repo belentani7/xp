@@ -6,32 +6,39 @@
 
 set +e
 
-XP_HOME="$HOME/.xp"
+XP_HOME="${XP_HOME:-$HOME/.xp}"
 
 if [ ! -f "$XP_HOME/xp" ]; then
+    exit 0
+fi
+
+# A fast-forward pull is not a merge commit and must not award a boss fight.
+PARENT_COUNT=$(git rev-list --parents -n 1 HEAD 2>/dev/null | awk '{ print NF - 1 }')
+if [ "${PARENT_COUNT:-0}" -lt 2 ]; then
     exit 0
 fi
 
 # Get merge info
 MERGE_MSG=$(git log -1 --pretty=%B 2>/dev/null)
 
-python3 -c "
+XP_HOME="$XP_HOME" XP_MERGE_MSG="$MERGE_MSG" "${XP_PYTHON:-python3}" - <<'PY'
+import os
 import sys
-sys.path.insert(0, '$XP_HOME')
+sys.path.insert(0, os.environ["XP_HOME"])
 
 from engine.rpg import award_xp, update_streak, check_lore_unlock, get_player
 from engine.achievements import ACHIEVEMENTS
 from engine.rpg import unlock_achievement, get_achievements
 
-# Boss fight — PR merge
-msg = '''$MERGE_MSG'''
+# Boss fight — local merge commit
+msg = os.environ["XP_MERGE_MSG"]
 result = award_xp('pr_merge', msg[:100])
 
 xp = result['xp_gained']
 print()
 print('  ╔═══════════════════════════════════════════╗')
 print(f'  ║  👹 BOSS DEFEATED! +{xp} XP              ║')
-print('  ║  PR Merged — The codebase grows stronger  ║')
+print('  ║  Git Merge — The codebase grows stronger   ║')
 print('  ╚═══════════════════════════════════════════╝')
 print()
 
@@ -40,11 +47,11 @@ update_streak()
 
 # Level up check
 if result['leveled_up']:
-    print(f'  ⬆️  LEVEL UP! Now level {result[\"new_level\"]}!')
+    print(f"  ⬆️  LEVEL UP! Now level {result['new_level']}!")
     lore = check_lore_unlock(result['new_level'])
     if lore:
         print(f'  {lore}')
     print()
-" 2>/dev/null
+PY
 
 exit 0

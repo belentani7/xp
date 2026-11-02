@@ -44,8 +44,9 @@ TIME_BONUSES = {
     "witching": (22, 2, 1.3),    # 10pm-2am: 1.3x
 }
 
-DB_PATH = Path.home() / ".xp" / "player.db"
-CHARACTER_PATH = Path.home() / ".xp" / "character.json"
+XP_HOME = Path(os.environ.get("XP_HOME", str(Path.home() / ".xp"))).expanduser()
+DB_PATH = XP_HOME / "player.db"
+CHARACTER_PATH = XP_HOME / "character.json"
 
 
 def get_db() -> sqlite3.Connection:

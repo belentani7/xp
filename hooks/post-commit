@@ -7,7 +7,7 @@
 # Don't slow down the commit — run fast, fail silent
 set +e
 
-XP_HOME="$HOME/.xp"
+XP_HOME="${XP_HOME:-$HOME/.xp}"
 XP_CLI="$XP_HOME/xp"
 
 # Check if xp is installed
@@ -17,16 +17,17 @@ fi
 
 # Get commit info
 COMMIT_MSG=$(git log -1 --pretty=%B 2>/dev/null)
-COMMIT_SIZE=$(git diff --stat HEAD~1 HEAD 2>/dev/null | tail -1 | awk '{print $4}' || echo "1")
+COMMIT_SIZE=$(git show --numstat --format= HEAD 2>/dev/null | awk '$1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ { total += $1 + $2 } END { print total + 0 }')
 
 if [ -z "$COMMIT_MSG" ]; then
     exit 0
 fi
 
 # Award XP via Python engine
-python3 -c "
+XP_HOME="$XP_HOME" XP_COMMIT_MSG="$COMMIT_MSG" XP_COMMIT_SIZE="$COMMIT_SIZE" "${XP_PYTHON:-python3}" - <<'PY'
+import os
 import sys
-sys.path.insert(0, '$XP_HOME')
+sys.path.insert(0, os.environ["XP_HOME"])
 
 from engine.rpg import (
     classify_commit, award_xp, update_streak,
@@ -36,11 +37,11 @@ from engine.achievements import check_achievements, ACHIEVEMENTS
 from engine.rpg import unlock_achievement, get_achievements, get_action_count, get_commit_count
 
 # Classify the commit
-msg = '''$COMMIT_MSG'''
+msg = os.environ["XP_COMMIT_MSG"]
 action_type = classify_commit(msg)
 
 # Size multiplier based on diff
-size = max(1, int('${COMMIT_SIZE:-1}' or '1') // 10 + 1)
+size = max(1, int(os.environ.get("XP_COMMIT_SIZE", "0")) // 10 + 1)
 size = min(size, 5)  # Cap at 5x
 
 # Award XP
@@ -110,7 +111,7 @@ if player:
         if ach_id not in unlocked_ids:
             if unlock_achievement(ach_id):
                 ach = ACHIEVEMENTS[ach_id]
-                print(f'  🏆 Achievement: {ach[\"icon\"]} {ach[\"name\"]}! (+{ach[\"xp_reward\"]} XP)')
-" 2>/dev/null
+                print(f"  🏆 Achievement: {ach['icon']} {ach['name']}! (+{ach['xp_reward']} XP)")
+PY
 
 exit 0
