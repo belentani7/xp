@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """XP Terminal RPG — Package Setup"""
 
-from setuptools import setup, find_packages
 from pathlib import Path
+
+from setuptools import find_packages, setup
 
 long_description = ""
 readme = Path(__file__).parent / "README.md"

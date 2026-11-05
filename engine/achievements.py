@@ -6,7 +6,6 @@ Each achievement is a fragment of the studio's story. Collect them all to piece
 together what really happened in Studio 7.
 """
 
-from datetime import datetime
 
 
 # Each achievement: id, name, description, xp_reward, icon, category, unlock_condition
