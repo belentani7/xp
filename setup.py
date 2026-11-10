@@ -16,25 +16,18 @@ setup(
     description="Terminal Coding RPG — turn every commit into XP",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="XP Project",
-    url="https://github.com/yourusername/xp",
+    author="Belentani XP contributors",
+    url="https://github.com/belentani7/xp",
     packages=find_packages(),
+    include_package_data=True,
     python_requires=">=3.7",
     install_requires=[],  # stdlib only!
     entry_points={
         "console_scripts": [
-            "xp=engine.rpg:main",
+            "xp=engine.cli:main",
         ],
     },
-    package_data={
-        "": [
-            "database/*.sql",
-            "config/*.yaml",
-            "hooks/*",
-            "display/*.sh",
-            "ascii/*.txt",
-        ],
-    },
+    package_data={"engine": ["schema.sql"]},
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",
