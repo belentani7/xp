@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Fail-open entry point used by repository-local Git hooks."""
 
 import subprocess

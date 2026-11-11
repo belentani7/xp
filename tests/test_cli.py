@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from engine import cli, rpg
 from pathlib import Path
 

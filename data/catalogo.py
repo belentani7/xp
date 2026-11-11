@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # catalogo.py — xp
 # Generado por repo_forge.py (create-only)
 

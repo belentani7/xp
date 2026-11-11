@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Install XP's opt-in, repository-local Git hooks."""
 
 import subprocess
