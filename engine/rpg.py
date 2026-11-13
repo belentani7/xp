@@ -8,6 +8,7 @@ The original developer left behind comments that read like warnings.
 """
 
 import sqlite3
+from importlib import resources
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -55,10 +56,17 @@ def get_db() -> sqlite3.Connection:
 
 def init_database():
     """Initialize the SQLite database with schema."""
-    schema_path = Path(__file__).parent.parent / "database" / "schema.sql"
     conn = get_db()
-    if schema_path.exists():
-        conn.executescript(schema_path.read_text())
+    try:
+        schema = resources.read_text("engine", "schema.sql", encoding="utf-8")
+    except (IOError, OSError, ModuleNotFoundError):
+        schema_path = Path(__file__).parent.parent / "database" / "schema.sql"
+        if not schema_path.exists():
+            conn.close()
+            raise
+        schema = schema_path.read_text(encoding="utf-8")
+    if schema:
+        conn.executescript(schema)
     else:
         # Inline fallback schema
         conn.executescript("""
@@ -141,15 +149,15 @@ def create_player(name: str = "Coder", char_class: str = None):
     conn = get_db()
     try:
         conn.execute(
-            "INSERT OR REPLACE INTO player (id, name, level, xp, hp, max_hp, mp, max_mp, class, gold, created_at, updated_at) "
+            "INSERT OR IGNORE INTO player (id, name, level, xp, hp, max_hp, mp, max_mp, class, gold, created_at, updated_at) "
             "VALUES (1, ?, 1, 0, 100, 100, 50, 50, ?, 0, ?, ?)",
             (name, char_class, now, now)
         )
         conn.execute(
-            "INSERT OR REPLACE INTO stats (player_id, str, int, dex, wis, cha) VALUES (1, 5, 5, 5, 5, 5)"
+            "INSERT OR IGNORE INTO stats (player_id, str, int, dex, wis, cha) VALUES (1, 5, 5, 5, 5, 5)"
         )
         conn.execute(
-            "INSERT OR REPLACE INTO streaks (player_id, current_streak, longest_streak, last_commit_date) VALUES (1, 0, 0, NULL)"
+            "INSERT OR IGNORE INTO streaks (player_id, current_streak, longest_streak, last_commit_date) VALUES (1, 0, 0, NULL)"
         )
         conn.commit()
     finally:
